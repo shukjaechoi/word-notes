@@ -1,4 +1,4 @@
-.quickAdd { max-width: 1132px; margin: 0 auto 28px; background: var(--ink); padding: 10px 10px 10px 20px; display: grid; grid-template-columns: 1fr auto; align-items: center; box-shadow: 0 10px 30px rgba(25,51,44,.1); }
+.quickAdd { max-width: 1132px; margin: 24px auto 28px; background: var(--ink); padding: 10px 10px 10px 20px; display: grid; grid-template-columns: 1fr auto; align-items: center; box-shadow: 0 10px 30px rgba(25,51,44,.1); }
 .quickAdd > div { display: flex; align-items: center; min-width: 0; }
 .quickIcon { color: #ee9b7f; font-size: 20px; margin-right: 12px; }
 .quickAdd input { width: 100%; background: transparent; border: 0; outline: 0; color: white; font: 14px var(--font-sans); padding: 10px 0; }
@@ -7,4 +7,4 @@
 .quickAdd > button:disabled { opacity: .5; }
 .quickAdd > button span { color: var(--accent); margin-left: 8px; }
 .inlineError { grid-column: 1 / -1; color: #ffc1ad; font-size: 10px; margin: 7px 0 0 33px; }
-@media (max-width: 700px) { .quickAdd { margin: 0 18px 25px; padding-left: 14px; } .quickAdd > button { padding: 12px 10px; } .quickAdd input { font-size: 12px; } }
+@media (max-width: 700px) { .quickAdd { margin: 16px 18px 25px; padding-left: 14px; } .quickAdd > button { padding: 12px 10px; } .quickAdd input { font-size: 12px; } }

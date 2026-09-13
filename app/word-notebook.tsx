@@ -170,10 +170,6 @@ export function WordNotebook() {
       </header>
 
       {mode === "library" ? <>
-        <section className="hero">
-          <div><p className="eyebrow">MY WORD COLLECTION</p><h1>오늘도 한 단어,<br/><em>내 것으로.</em></h1><p className="subtitle">마주친 단어를 기록하고, 문장 속에서 익혀보세요.</p></div>
-          <div className="stat"><strong>{words.length}</strong><span>모은 단어</span><i/><strong>{words.filter(w => w.mastered).length}</strong><span>익힌 단어</span></div>
-        </section>
         <section className="quickAdd" aria-label="새 단어 추가">
           <div><span className="quickIcon">＋</span><input ref={addInput} value={newWord} onChange={(e) => { setNewWord(e.target.value); setNotice(""); }} onKeyDown={(e) => e.key === "Enter" && addWord()} placeholder="새로 만난 영어 단어나 표현을 입력하세요" aria-label="추가할 영어 단어나 표현"/></div>
           <button disabled={loading || !newWord.trim()} onClick={addWord}>{loading ? "사전에서 찾는 중…" : "뜻과 예문 찾기"} <span>→</span></button>
