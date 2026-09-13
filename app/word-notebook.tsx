@@ -183,7 +183,7 @@ export function WordNotebook() {
 
       {mode === "library" ? <>
         <section className="quickAdd" aria-label="새 단어 추가">
-          <div><span className="quickIcon">＋</span><input ref={addInput} value={newWord} onChange={(e) => { setNewWord(e.target.value); setNotice(""); }} onKeyDown={(e) => e.key === "Enter" && addWord()} placeholder="새로 만난 영어 단어나 표현을 입력하세요" aria-label="추가할 영어 단어나 표현"/></div>
+          <div><span className="quickIcon">＋</span><input ref={addInput} value={newWord} onChange={(e) => { setNewWord(e.target.value); setNotice(""); }} onKeyDown={(e) => e.key === "Enter" && addWord()} placeholder="단어/표현 입력" aria-label="추가할 영어 단어나 표현"/></div>
           <button disabled={loading || !newWord.trim()} onClick={addWord}>{loading ? "사전에서 찾는 중…" : "뜻과 예문 찾기"} <span>→</span></button>
           {notice && <p className="inlineError">{notice}</p>}
         </section>
