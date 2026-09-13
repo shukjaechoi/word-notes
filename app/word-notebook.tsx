@@ -38,6 +38,22 @@ export function WordNotebook() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!window.matchMedia("(min-width: 701px)").matches) return;
+    addInput.current?.focus();
+    const typeToAdd = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const isEditing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
+      if (isEditing || event.metaKey || event.ctrlKey || event.altKey || event.key.length !== 1) return;
+      event.preventDefault();
+      setMode("library");
+      setNewWord((current) => current + event.key);
+      requestAnimationFrame(() => addInput.current?.focus());
+    };
+    window.addEventListener("keydown", typeToAdd);
+    return () => window.removeEventListener("keydown", typeToAdd);
+  }, []);
+
   const visible = useMemo(() => words.filter((item) => {
     const matchesText = `${item.word} ${item.korean} ${item.definition}`.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === "all" || (filter === "mastered" ? item.mastered : !item.mastered);
