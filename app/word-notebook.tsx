@@ -20,6 +20,36 @@ const seedWords: Word[] = [
   { id: 3, word: "on the fence", phonetic: "expression", partOfSpeech: "idiom", definition: "Unable to decide between two possibilities.", korean: "결정을 못 내리는, 망설이는", examples: ["I’m still on the fence about moving abroad.", "Voters remain on the fence before the debate."], mastered: false },
 ];
 
+type LookupEntry = Omit<Word, "id" | "mastered">;
+
+function fallbackExamples(word: string, partOfSpeech: string) {
+  if (partOfSpeech === "verb") return [`They decided to ${word} before the meeting ended.`, `It can be difficult to ${word} without enough information.`];
+  if (partOfSpeech === "adjective" || partOfSpeech === "adj") return [`The situation became ${word} as the deadline approached.`, `Her description made the problem sound ${word}.`];
+  if (word.includes(" ")) return [`She used the expression “${word}” during our conversation.`, `I finally understood what “${word}” meant in that context.`];
+  return [`The ${word} became an important part of our discussion.`, `I encountered the word “${word}” while reading today.`];
+}
+
+async function lookupWord(value: string): Promise<LookupEntry> {
+  try {
+    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(value)}`, { signal: AbortSignal.timeout(4500) });
+    if (!response.ok) throw new Error("primary dictionary unavailable");
+    const [entry] = await response.json();
+    const meaning = entry.meanings?.find((item: { definitions?: unknown[] }) => item.definitions?.length) || entry.meanings?.[0];
+    const definitions = meaning?.definitions || [];
+    const definition = definitions[0]?.definition || "Definition unavailable.";
+    const examples = definitions.map((item: { example?: string }) => item.example).filter(Boolean).slice(0, 3);
+    return { word: entry.word || value, phonetic: entry.phonetic || entry.phonetics?.find((item: { text?: string }) => item.text)?.text || "", partOfSpeech: meaning?.partOfSpeech || "word", definition, korean: "", examples: examples.length ? examples : fallbackExamples(value, meaning?.partOfSpeech || "word") };
+  } catch {
+    const response = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(value)}&md=d,p&max=1`, { signal: AbortSignal.timeout(6000) });
+    if (!response.ok) throw new Error("fallback dictionary unavailable");
+    const [entry] = await response.json();
+    if (!entry || entry.word.toLowerCase() !== value.toLowerCase() || !entry.defs?.length) throw new Error("word not found");
+    const [part = "word", definition = "Definition unavailable."] = entry.defs[0].split("\t");
+    const partOfSpeech = part === "adj" ? "adjective" : part === "adv" ? "adverb" : part === "v" ? "verb" : part === "n" ? "noun" : part;
+    return { word: entry.word, phonetic: "", partOfSpeech, definition, korean: "", examples: fallbackExamples(entry.word, partOfSpeech) };
+  }
+}
+
 export function WordNotebook() {
   const [words, setWords] = useState<Word[]>([]);
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
@@ -78,27 +108,20 @@ export function WordNotebook() {
     if (!value || words.some((item) => item.word.toLowerCase() === value.toLowerCase())) return;
     setLoading(true); setNotice("");
     try {
-      const lookup = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(value)}`);
-      if (!lookup.ok) throw new Error();
-      const [dictionaryEntry] = await lookup.json();
-      const meaning = dictionaryEntry.meanings?.find((entry: { definitions?: unknown[] }) => entry.definitions?.length) || dictionaryEntry.meanings?.[0];
-      const definitions = meaning?.definitions || [];
-      const definition = definitions[0]?.definition || "Definition unavailable.";
+      const entry = await lookupWord(value);
       let korean = "한국어 뜻을 불러오지 못했어요.";
       try {
-        const translation = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(definition)}&langpair=en|ko`);
+        const translation = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(entry.definition)}&langpair=en|ko`, { signal: AbortSignal.timeout(6000) });
         const translated = await translation.json();
         korean = translated.responseData?.translatedText || korean;
       } catch { /* English definition remains available. */ }
-      const examples = definitions.map((item: { example?: string }) => item.example).filter(Boolean).slice(0, 3);
-      if (!examples.length) examples.push(`I recently learned the word “${value}.”`);
-      const entry = { word: dictionaryEntry.word || value, phonetic: dictionaryEntry.phonetic || dictionaryEntry.phonetics?.find((item: { text?: string }) => item.text)?.text || "", partOfSpeech: meaning?.partOfSpeech || "word", definition, korean, examples };
+      entry.korean = korean;
       const { data, error } = await supabase.from("words").insert({ user_id: userId, word: entry.word, phonetic: entry.phonetic, part_of_speech: entry.partOfSpeech, definition: entry.definition, korean: entry.korean, examples: entry.examples }).select().single();
       if (error) throw error;
       const item = { ...entry, id: data.id, mastered: false };
       setWords((current) => [item, ...current]); setNewWord("");
     } catch {
-      setNotice("사전에서 찾지 못했어요. 철자를 확인한 뒤 다시 시도해 주세요.");
+      setNotice("단어를 조회하거나 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally { setLoading(false); }
   }
 
