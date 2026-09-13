@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import "./quick-add.css";
 
 const sans = Noto_Sans_KR({ variable: "--font-sans", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const serif = Playfair_Display({ variable: "--font-serif", subsets: ["latin"] });

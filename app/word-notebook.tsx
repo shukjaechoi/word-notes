@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Word = {
   id: number;
@@ -23,7 +23,6 @@ export function WordNotebook() {
   const [words, setWords] = useState<Word[]>(seedWords);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "learning" | "mastered">("all");
-  const [adding, setAdding] = useState(false);
   const [newWord, setNewWord] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -31,6 +30,7 @@ export function WordNotebook() {
   const [testIndex, setTestIndex] = useState(0);
   const [sentence, setSentence] = useState("");
   const [feedback, setFeedback] = useState<"" | "good" | "retry">("");
+  const addInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/words").then((r) => r.ok ? r.json() : null).then((data) => {
@@ -54,7 +54,7 @@ export function WordNotebook() {
       const entry = await lookup.json();
       const saved = await fetch("/api/words", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) });
       const item = saved.ok ? await saved.json() : { ...entry, id: Date.now() };
-      setWords((current) => [item, ...current]); setNewWord(""); setAdding(false);
+      setWords((current) => [item, ...current]); setNewWord("");
     } catch {
       setNotice("사전에서 찾지 못했어요. 철자를 확인한 뒤 다시 시도해 주세요.");
     } finally { setLoading(false); }
@@ -88,13 +88,18 @@ export function WordNotebook() {
           <button className={mode === "library" ? "active" : ""} onClick={() => setMode("library")}>단어장</button>
           <button className={mode === "test" ? "active" : ""} onClick={() => setMode("test")}>테스트</button>
         </nav>
-        <button className="addButton" onClick={() => setAdding(true)}><span>＋</span> 단어 추가</button>
+        <button className="addButton" onClick={() => { setMode("library"); setTimeout(() => addInput.current?.focus(), 0); }}><span>＋</span> 단어 추가</button>
       </header>
 
       {mode === "library" ? <>
         <section className="hero">
           <div><p className="eyebrow">MY WORD COLLECTION</p><h1>오늘도 한 단어,<br/><em>내 것으로.</em></h1><p className="subtitle">마주친 단어를 기록하고, 문장 속에서 익혀보세요.</p></div>
           <div className="stat"><strong>{words.length}</strong><span>모은 단어</span><i/><strong>{words.filter(w => w.mastered).length}</strong><span>익힌 단어</span></div>
+        </section>
+        <section className="quickAdd" aria-label="새 단어 추가">
+          <div><span className="quickIcon">＋</span><input ref={addInput} value={newWord} onChange={(e) => { setNewWord(e.target.value); setNotice(""); }} onKeyDown={(e) => e.key === "Enter" && addWord()} placeholder="새로 만난 영어 단어나 표현을 입력하세요" aria-label="추가할 영어 단어나 표현"/></div>
+          <button disabled={loading || !newWord.trim()} onClick={addWord}>{loading ? "사전에서 찾는 중…" : "뜻과 예문 찾기"} <span>→</span></button>
+          {notice && <p className="inlineError">{notice}</p>}
         </section>
         <section className="tools">
           <label className="search"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="단어나 뜻 검색"/></label>
@@ -106,7 +111,7 @@ export function WordNotebook() {
             <span className="pos">{item.partOfSpeech}</span><p className="definition">{item.definition}</p><p className="korean">{item.korean}</p>
             <div className="examples">{item.examples.slice(0, 2).map((example, i) => <p key={i}><span>{String(i + 1).padStart(2, "0")}</span>{example}</p>)}</div>
           </article>)}
-          {!visible.length && <div className="empty">찾는 단어가 없어요.<br/><button onClick={() => setAdding(true)}>새 단어 추가하기</button></div>}
+          {!visible.length && <div className="empty">찾는 단어가 없어요.<br/>위 입력창에서 새 단어를 추가해 보세요.</div>}
         </section>
       </> : <section className="testPage">
         <div className="testIntro"><p className="eyebrow">USE IT IN A SENTENCE</p><h1>문장으로<br/><em>기억하기</em></h1><p>뜻을 떠올리며 나만의 예문을 만들어 보세요. 완벽하지 않아도 괜찮아요.</p></div>
@@ -118,7 +123,6 @@ export function WordNotebook() {
         </div>
       </section>}
 
-      {adding && <div className="modalBackdrop" onMouseDown={() => setAdding(false)}><section className="modal" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="add-title"><button className="close" onClick={() => setAdding(false)}>×</button><p className="eyebrow">NEW WORD</p><h2 id="add-title">어떤 단어를 만났나요?</h2><p>영어 단어나 표현을 입력하면 뜻과 예문을 찾아드려요.</p><input autoFocus value={newWord} onChange={(e) => setNewWord(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addWord()} placeholder="e.g. compelling"/><button className="lookup" disabled={loading || !newWord.trim()} onClick={addWord}>{loading ? "사전에서 찾는 중…" : "뜻과 예문 찾기 →"}</button>{notice && <p className="error">{notice}</p>}</section></div>}
     </main>
   );
 }
