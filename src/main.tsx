@@ -5,5 +5,6 @@ import "../app/globals.css";
 import "../app/fonts.css";
 import "../app/quick-add.css";
 import "../app/auth.css";
+import "../app/readability.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><WordNotebook /></React.StrictMode>);

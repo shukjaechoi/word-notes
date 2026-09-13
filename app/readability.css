@@ -1,0 +1,6 @@
+.examples p { font-size: 13px; line-height: 1.65; }
+.examples p span { font-size: 10px; }
+
+@media (max-width: 700px) {
+  .examples p { font-size: 13px; }
+}
