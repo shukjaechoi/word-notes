@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isSupabaseConfigured, supabase } from "../src/supabase";
 
 type Word = {
   id: number;
@@ -20,7 +21,10 @@ const seedWords: Word[] = [
 ];
 
 export function WordNotebook() {
-  const [words, setWords] = useState<Word[]>(seedWords);
+  const [words, setWords] = useState<Word[]>([]);
+  const [userId, setUserId] = useState<string | null | undefined>(undefined);
+  const [email, setEmail] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "learning" | "mastered">("all");
   const [newWord, setNewWord] = useState("");
@@ -33,10 +37,19 @@ export function WordNotebook() {
   const addInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/words").then((r) => r.ok ? r.json() : null).then((data) => {
-      if (Array.isArray(data) && data.length) setWords(data);
-    }).catch(() => {});
+    if (!isSupabaseConfigured) { setUserId(null); return; }
+    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setUserId(session?.user.id ?? null));
+    return () => data.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase.from("words").select("*").order("created_at", { ascending: false }).then(({ data, error }) => {
+      if (error) { setNotice("단어를 불러오지 못했어요. Supabase 설정을 확인해 주세요."); return; }
+      setWords((data || []).map((row) => ({ id: row.id, word: row.word, phonetic: row.phonetic, partOfSpeech: row.part_of_speech, definition: row.definition, korean: row.korean, examples: row.examples, mastered: row.mastered })));
+    });
+  }, [userId]);
 
   useEffect(() => {
     if (!window.matchMedia("(min-width: 701px)").matches) return;
@@ -65,11 +78,24 @@ export function WordNotebook() {
     if (!value || words.some((item) => item.word.toLowerCase() === value.toLowerCase())) return;
     setLoading(true); setNotice("");
     try {
-      const lookup = await fetch(`/api/lookup?word=${encodeURIComponent(value)}`);
+      const lookup = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(value)}`);
       if (!lookup.ok) throw new Error();
-      const entry = await lookup.json();
-      const saved = await fetch("/api/words", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) });
-      const item = saved.ok ? await saved.json() : { ...entry, id: Date.now() };
+      const [dictionaryEntry] = await lookup.json();
+      const meaning = dictionaryEntry.meanings?.find((entry: { definitions?: unknown[] }) => entry.definitions?.length) || dictionaryEntry.meanings?.[0];
+      const definitions = meaning?.definitions || [];
+      const definition = definitions[0]?.definition || "Definition unavailable.";
+      let korean = "한국어 뜻을 불러오지 못했어요.";
+      try {
+        const translation = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(definition)}&langpair=en|ko`);
+        const translated = await translation.json();
+        korean = translated.responseData?.translatedText || korean;
+      } catch { /* English definition remains available. */ }
+      const examples = definitions.map((item: { example?: string }) => item.example).filter(Boolean).slice(0, 3);
+      if (!examples.length) examples.push(`I recently learned the word “${value}.”`);
+      const entry = { word: dictionaryEntry.word || value, phonetic: dictionaryEntry.phonetic || dictionaryEntry.phonetics?.find((item: { text?: string }) => item.text)?.text || "", partOfSpeech: meaning?.partOfSpeech || "word", definition, korean, examples };
+      const { data, error } = await supabase.from("words").insert({ user_id: userId, word: entry.word, phonetic: entry.phonetic, part_of_speech: entry.partOfSpeech, definition: entry.definition, korean: entry.korean, examples: entry.examples }).select().single();
+      if (error) throw error;
+      const item = { ...entry, id: data.id, mastered: false };
       setWords((current) => [item, ...current]); setNewWord("");
     } catch {
       setNotice("사전에서 찾지 못했어요. 철자를 확인한 뒤 다시 시도해 주세요.");
@@ -79,7 +105,16 @@ export function WordNotebook() {
   async function toggleMastered(item: Word) {
     const updated = { ...item, mastered: !item.mastered };
     setWords((current) => current.map((word) => word.id === item.id ? updated : word));
-    fetch(`/api/words/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ mastered: updated.mastered }) }).catch(() => {});
+    const { error } = await supabase.from("words").update({ mastered: updated.mastered }).eq("id", item.id);
+    if (error) setWords((current) => current.map((word) => word.id === item.id ? item : word));
+  }
+
+  async function sendMagicLink() {
+    if (!email.trim()) return;
+    setLoading(true); setAuthNotice("");
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.href.split("#")[0].split("?")[0] } });
+    setAuthNotice(error ? error.message : "로그인 링크를 이메일로 보냈어요. 메일함을 확인해 주세요.");
+    setLoading(false);
   }
 
   function checkSentence() {
@@ -96,6 +131,10 @@ export function WordNotebook() {
 
   const testWord = words[testIndex] ?? seedWords[0];
 
+  if (!isSupabaseConfigured) return <main className="authPage"><section className="authCard"><span className="brandMark">W</span><p className="eyebrow">ONE-TIME SETUP</p><h1>Supabase 연결이 필요해요</h1><p>GitHub 저장소의 Pages 환경 변수에 Project URL과 Publishable key를 등록하면 단어장이 열립니다.</p></section></main>;
+  if (userId === undefined) return <main className="authPage"><p>단어장을 여는 중…</p></main>;
+  if (!userId) return <main className="authPage"><section className="authCard"><span className="brandMark">W</span><p className="eyebrow">PRIVATE WORD NOTEBOOK</p><h1>내 단어장에 로그인</h1><p>비밀번호 없이 이메일로 받은 링크를 눌러 로그인합니다.</p><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => event.key === "Enter" && sendMagicLink()} placeholder="email@example.com"/><button onClick={sendMagicLink} disabled={loading || !email.trim()}>{loading ? "보내는 중…" : "로그인 링크 받기 →"}</button>{authNotice && <p className="authNotice">{authNotice}</p>}</section></main>;
+
   return (
     <main>
       <header className="topbar">
@@ -104,7 +143,7 @@ export function WordNotebook() {
           <button className={mode === "library" ? "active" : ""} onClick={() => setMode("library")}>단어장</button>
           <button className={mode === "test" ? "active" : ""} onClick={() => setMode("test")}>테스트</button>
         </nav>
-        <button className="addButton" onClick={() => { setMode("library"); setTimeout(() => addInput.current?.focus(), 0); }}><span>＋</span> 단어 추가</button>
+        <div className="headerActions"><button className="logout" onClick={() => supabase.auth.signOut()}>로그아웃</button><button className="addButton" onClick={() => { setMode("library"); setTimeout(() => addInput.current?.focus(), 0); }}><span>＋</span> 단어 추가</button></div>
       </header>
 
       {mode === "library" ? <>
@@ -131,7 +170,7 @@ export function WordNotebook() {
         </section>
       </> : <section className="testPage">
         <div className="testIntro"><p className="eyebrow">USE IT IN A SENTENCE</p><h1>문장으로<br/><em>기억하기</em></h1><p>뜻을 떠올리며 나만의 예문을 만들어 보세요. 완벽하지 않아도 괜찮아요.</p></div>
-        <div className="testCard"><div className="progress"><span>오늘의 연습</span><span>{testIndex + 1} / {words.length}</span></div><div className="progressBar"><i style={{width: `${((testIndex + 1) / words.length) * 100}%`}}/></div>
+        <div className="testCard"><div className="progress"><span>오늘의 연습</span><span>{words.length ? testIndex + 1 : 0} / {words.length}</span></div><div className="progressBar"><i style={{width: `${words.length ? ((testIndex + 1) / words.length) * 100 : 0}%`}}/></div>
           <div className="prompt"><span className="pos">{testWord.partOfSpeech}</span><h2>{testWord.word}</h2><p>{testWord.korean}</p></div>
           <label htmlFor="sentence">이 단어를 사용해 영어 문장을 적어보세요.</label><textarea id="sentence" value={sentence} onChange={(e) => {setSentence(e.target.value); setFeedback("");}} placeholder={`Write a sentence using “${testWord.word}”...`}/>
           {feedback && <div className={`feedback ${feedback}`}><strong>{feedback === "good" ? "좋아요! 문장 안에서 잘 사용했어요." : "조금 더 다듬어 볼까요?"}</strong><p>{feedback === "good" ? "단어가 포함되고 충분한 문맥이 있는 문장이에요. 아래 사전 예문과 비교해 보세요." : `“${testWord.word}”를 직접 넣어 5단어 이상의 문장으로 적어 보세요.`}</p>{feedback === "good" && <blockquote>{testWord.examples[0]}</blockquote>}</div>}
