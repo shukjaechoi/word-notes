@@ -178,7 +178,7 @@ export function WordNotebook() {
           <button className={mode === "library" ? "active" : ""} onClick={() => setMode("library")}>단어장</button>
           <button className={mode === "test" ? "active" : ""} onClick={() => setMode("test")}>테스트</button>
         </nav>
-        <div className="headerActions"><button className="logout" onClick={() => supabase.auth.signOut()}>로그아웃</button><button className="addButton" onClick={() => { setMode("library"); setTimeout(() => addInput.current?.focus(), 0); }}><span>＋</span> 단어 추가</button></div>
+        <div className="headerActions"><button className="logout" onClick={() => supabase.auth.signOut()}>로그아웃</button></div>
       </header>
 
       {mode === "library" ? <>
