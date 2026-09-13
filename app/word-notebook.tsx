@@ -50,6 +50,18 @@ async function lookupWord(value: string): Promise<LookupEntry> {
   }
 }
 
+function speakEnglish(text: string) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.9;
+  const voices = window.speechSynthesis.getVoices();
+  utterance.voice = voices.find((voice) => voice.lang.toLowerCase() === "en-us")
+    || voices.find((voice) => voice.lang.toLowerCase().startsWith("en"))
+    || null;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
 export function WordNotebook() {
   const [words, setWords] = useState<Word[]>([]);
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
@@ -181,7 +193,7 @@ export function WordNotebook() {
         </section>
         <section className="wordGrid">
           {visible.map((item, index) => <article className="wordCard" key={item.id} style={{animationDelay: `${index * 50}ms`}}>
-            <div className="cardTop"><div><div className="wordLine"><h2>{item.word}</h2><button className="sound" aria-label={`${item.word} 발음 듣기`} onClick={() => speechSynthesis.speak(new SpeechSynthesisUtterance(item.word))}>♪</button></div><p className="phonetic">{item.phonetic}</p></div><button onClick={() => toggleMastered(item)} className={`status ${item.mastered ? "done" : ""}`}>{item.mastered ? "✓ 익힘" : "○ 학습 중"}</button></div>
+            <div className="cardTop"><div><div className="wordLine"><h2>{item.word}</h2><button className="sound" aria-label={`${item.word} 영어 발음 듣기`} onClick={() => speakEnglish(item.word)}>♪</button></div><p className="phonetic">{item.phonetic}</p></div><button onClick={() => toggleMastered(item)} className={`status ${item.mastered ? "done" : ""}`}>{item.mastered ? "✓ 익힘" : "○ 학습 중"}</button></div>
             <span className="pos">{item.partOfSpeech}</span><p className="definition">{item.definition}</p><p className="korean">{item.korean}</p>
             <div className="examples">{item.examples.slice(0, 2).map((example, i) => <p key={i}><span>{String(i + 1).padStart(2, "0")}</span>{example}</p>)}</div>
           </article>)}
