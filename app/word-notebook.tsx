@@ -68,7 +68,7 @@ export function WordNotebook() {
   const [email, setEmail] = useState("");
   const [authNotice, setAuthNotice] = useState("");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "learning" | "mastered">("all");
+  const [filter, setFilter] = useState<"all" | "learning" | "mastered">("learning");
   const [newWord, setNewWord] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -199,8 +199,7 @@ export function WordNotebook() {
           </article>)}
           {!visible.length && <div className="empty">찾는 단어가 없어요.<br/>위 입력창에서 새 단어를 추가해 보세요.</div>}
         </section>
-      </> : <section className="testPage">
-        <div className="testIntro"><p className="eyebrow">USE IT IN A SENTENCE</p><h1>문장으로<br/><em>기억하기</em></h1><p>뜻을 떠올리며 나만의 예문을 만들어 보세요. 완벽하지 않아도 괜찮아요.</p></div>
+      </> : <section className="testPage compactTestPage">
         <div className="testCard"><div className="progress"><span>오늘의 연습</span><span>{words.length ? testIndex + 1 : 0} / {words.length}</span></div><div className="progressBar"><i style={{width: `${words.length ? ((testIndex + 1) / words.length) * 100 : 0}%`}}/></div>
           <div className="prompt"><span className="pos">{testWord.partOfSpeech}</span><h2>{testWord.word}</h2><p>{testWord.korean}</p></div>
           <label htmlFor="sentence">이 단어를 사용해 영어 문장을 적어보세요.</label><textarea id="sentence" value={sentence} onChange={(e) => {setSentence(e.target.value); setFeedback("");}} placeholder={`Write a sentence using “${testWord.word}”...`}/>

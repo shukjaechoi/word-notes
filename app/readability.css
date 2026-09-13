@@ -1,6 +1,9 @@
 .examples p { font-size: 13px; line-height: 1.65; }
 .examples p span { font-size: 10px; }
+.compactTestPage { display: block; max-width: 680px; min-height: auto; padding-top: 32px; }
+.compactTestPage .testCard { width: 100%; }
 
 @media (max-width: 700px) {
   .examples p { font-size: 13px; }
+  .compactTestPage { padding-top: 16px; }
 }
